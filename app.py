@@ -3,8 +3,12 @@ from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAI, OpenAIEmbeddings
+from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+from langchain.chat_models import ChatOpenAI
 
 
 def get_pdf_content(documents):
@@ -31,9 +35,25 @@ def get_chunks(text):
 
 def get_embeddings(chunks):
     embeddings = OpenAIEmbeddings()
+    # embeddings = HuggingFaceInstructEmbeddings(model_name="")
     vector_storage = FAISS.from_texts(texts=chunks, embedding=embeddings)
 
     return vector_storage
+
+
+def start_conversation(vector_embeddings):
+    llm = ChatOpenAI()
+    memory = ConversationBufferMemory(
+        memory_key='chat_history',
+        return_messages=True
+    )
+    conversation = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vector_embeddings.as_retriever(),
+        memory=memory
+    )
+
+    return conversation
 
 
 def main():
@@ -44,6 +64,9 @@ def main():
 
     st.header("Hi, I am Baasha, a PDF ChatBot")
     st.text_input("How can I help you today?")
+
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
 
     with st.sidebar:
         st.subheader("PDF documents")
@@ -58,6 +81,8 @@ def main():
                 text_chunks = get_chunks(extracted_text)
                 # create vector embeddings
                 vector_embeddings = get_embeddings(text_chunks)
+                # create conversation
+                st.session_state.conversation = start_conversation(vector_embeddings)
 
 
 if __name__ == "__main__":
