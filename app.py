@@ -10,6 +10,8 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 
+from web_template import css, bot_template, user_template
+
 
 def get_pdf_content(documents):
     raw_text = ""
@@ -56,17 +58,37 @@ def start_conversation(vector_embeddings):
     return conversation
 
 
+def process_query(query_text):
+    response = st.session_state.conversation({'question': query_text})
+    st.session_state.chat_history = response["chat_history"]
+
+    for i, message in enumerate(st.session_state.chat_history):
+        if i%2 == 0:
+            st.write(user_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+
+
 def main():
     load_dotenv()
 
     st.set_page_config(page_title="Chat with PDFs", page_icon=":books:", layout="wide")
     st.image("templates/baasha.jpg")
 
+    st.write(css, unsafe_allow_html=True)
+
     st.header("Hi, I am Baasha, a PDF ChatBot")
-    st.text_input("How can I help you today?")
+    query = st.text_input("How can I help you today?")
+
+    if query:
+        process_query(query)
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
 
     with st.sidebar:
         st.subheader("PDF documents")
